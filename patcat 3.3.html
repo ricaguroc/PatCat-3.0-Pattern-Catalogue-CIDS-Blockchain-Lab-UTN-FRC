@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Voz a texto + Palabras relevantes (MiniLM)</title>
+  <style>
+    /* Base variables */
+    :root {
+      --fg:#111;
+      --muted:#666;
+      --bg:#fff;
+      --line:#e5e7eb;
+      --accent:#2563eb;
+      --card:#fff;
+      --bg-ship:linear-gradient(180deg,#f8fafc,#ffffff 40%);
+    }
+
+    *{box-sizing:border-box;}
+    body{
+      font-family:system-ui,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;
+      color:var(--fg);
+      background:var(--bg-ship);
+      margin:0;
+    }
+    .wrap{
+      max-width:900px;
+      margin:0 auto;
+      padding:24px;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:16px;
+      box-shadow:0 6px 24px rgba(16,24,40,.06);
+    }
+    h1{
+      font-size:1.5rem;
+      margin:0 0 10px;
+      letter-spacing:.2px;
+    }
+    p{color:var(--muted);margin:0 0 12px;}
+    textarea{
+      width:100%;
+      min-height:160px;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      font-size:15px;
+      resize:vertical;
+      background:#fff;
+    }
+    .row{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin:10px 0 16px;
+    }
+    button{
+      padding:10px 14px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      font-weight:600;
+      cursor:pointer;
+      transition:filter .15s;
+    }
+    button[disabled]{opacity:.6;cursor:not-allowed;}
+    /* Primary button */
+    .btn-primary{
+      background:var(--accent);
+      color:#fff;
+      border-color:transparent;
+      box-shadow:0 4px 14px rgba(37,99,235,.18);
+    }
+    .btn-primary:hover{filter:brightness(.98);}
+    input[type="number"],select{
+      padding:8px 10px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#fff;
+    }
+    .progress{font-size:.95rem;color:var(--muted);margin:8px 0;}
+    .results{margin-top:16px;border-top:1px solid var(--line);display:none;}
+    .item{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:8px 0;}
+    .tag{font-weight:600;}
+    .score{color:var(--muted);}
+    .foot{margin-top:18px;color:var(--muted);font-size:.9rem;}
+    .pill{display:inline-block;padding:4px 8px;border:1px solid var(--line);border-radius:999px;margin-right:8px;}
+    .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-left:8px;}
+    .on{background:#1db954;box-shadow:0 0 8px #1db954;}
+    .off{background:#bbb;}
+
+    /* Tab styles */
+    #tabs{margin-top:24px;}
+    .tab-buttons{
+      display:flex;
+      border-bottom:1px solid var(--line);
+    }
+    .tab{
+      flex:1;
+      padding:8px 12px;
+      text-align:center;
+      border:1px solid var(--line);
+      border-bottom:none;
+      border-radius:12px 12px 0 0;
+      background:#f8fafc;
+      color:#0f172a;
+      cursor:pointer;
+      font-weight:600;
+    }
+    .tab + .tab{margin-left:4px;}
+    .tab.active{
+      background:var(--accent);
+      color:#fff;
+    }
+    .tabContent{
+      border:1px solid var(--line);
+      border-radius:0 12px 12px 12px;
+      padding:16px;
+      background:#f9fafb;
+      margin-top:-1px;
+    }
+    .tabContent p{margin:0 0 12px;}
+    .tabContent pre{
+      white-space:pre-wrap;
+      word-break:break-word;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:8px;
+      padding:10px;
+      margin:0 0 12px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+      font-size:14px;
+      line-height:1.4;
+    }
+    .listrow{
+      display:flex;
+      justify-content:space-between;
+      padding:6px 0;
+      border-bottom:1px dashed var(--line);
+      font-size:14px;
+    }
+    .listrow:last-child{border-bottom:0;}
+    .prompt-actions{display:flex;gap:8px;margin-top:8px;}
+    .prompt-actions button{
+      background:#0f172a;
+      color:#fff;
+      border:1px solid #0f172a;
+      border-radius:8px;
+      padding:8px 12px;
+      font-size:14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🎙️ Voz a texto + 🔎 Palabras relevantes</h1>
+    <p>Dicta o escribe tu texto. El sistema transcribe y luego detecta términos clave con <code>all-MiniLM-L6-v2</code>.</p>
+
+    <div class="row">
+      <button id="btnToggle" class="btn-primary">🎙️ Iniciar voz</button>
+      <button id="btnClear" class="btn-primary">🧹 Limpiar</button>
+      <span>Idioma:
+        <select id="lang">
+          <option value="es-AR" selected>Español (Argentina)</option>
+          <option value="es-ES">Español (España)</option>
+          <option value="en-US">English (US)</option>
+        </select>
+      </span>
+      <span>Estado: <span id="statusDot" class="dot off"></span></span>
+    </div>
+
+    <textarea id="texto" placeholder="Escribe o dicta aquí tu texto…"></textarea>
+
+    <div class="row">
+      <label>Top N
+        <input id="topk" type="number" min="3" max="3" value="3" readonly />
+      </label>
+      <label>Mín. longitud token
+        <input id="minlen" type="number" min="2" max="10" value="3" />
+      </label>
+      <label>
+        N-gramas
+        <select id="ngrams">
+          <option value="1">Solo unigramas</option>
+          <option value="2" selected>Unigramas + bigramas</option>
+        </select>
+      </label>
+      <button id="extraer" class="btn-primary">Extraer relevantes</button>
+      <span id="status" class="progress"></span>
+    </div>
+
+    <!-- Hidden results (not used directly in UI) -->
+    <div class="results" id="resultados"></div>
+
+    <!-- Tabbed interface: Instrucción (default) and Palabras -->
+    <div id="tabs" style="display:none">
+      <div class="tab-buttons">
+        <button id="tabInstruction" class="tab active">Instrucción</button>
+        <button id="tabWords" class="tab">Palabras</button>
+      </div>
+      <!-- Instrucción section -->
+      <div id="instructionSection" class="tabContent">
+        <!-- Instrucción personalizada: aquí puedes modificar el texto que se muestra como guía al usuario -->
+        <p>¡Hola! Por favor, copia la siguiente instrucción en el portapales. Luego, abre este cuaderno de NotebookLM: PatCat 3.0 Pattern Catalogue CIDS Blockchain Lab UTN-FRC. Una vez dentro, pega la instrucción en el chat para obtener el patrón buscado:</p>
+        <pre id="promptText"></pre>
+        <div class="prompt-actions">
+          <button id="btnGoCopy">Ir a Patcat 3.0 y Pegar el prompt</button>
+        </div>
+      </div>
+      <!-- Palabras section -->
+      <div id="wordsSection" class="tabContent" style="display:none">
+        <div id="wordsList"></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="pill">100% offline (voz en navegador + MiniLM embeddings)</div>
+      <div class="pill">WebGPU o WASM</div>
+    </div>
+  </div>
+
+  <!-- ================== SCRIPT VOZ ================== -->
+  <script>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const btnToggle = document.getElementById('btnToggle');
+    const btnClear = document.getElementById('btnClear');
+    const langSel = document.getElementById('lang');
+    const outArea = document.getElementById('texto');
+    const statusDot = document.getElementById('statusDot');
+
+    let recognizer = null;
+    let listening = false;
+    let finalBuffer = '';
+
+    function setStatus(on) {
+      statusDot.className = 'dot ' + (on ? 'on' : 'off');
+      btnToggle.textContent = on ? '⏸️ Pausar voz' : '🎙️ Iniciar voz';
+    }
+
+    function createRecognizer() {
+      const rec = new SpeechRecognition();
+      rec.lang = langSel.value;
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.onstart = () => setStatus(true);
+      rec.onend = () => { setStatus(false); if (listening) rec.start(); };
+      rec.onresult = (evt) => {
+        let interim = '';
+        for (let i = evt.resultIndex; i < evt.results.length; i++) {
+          const res = evt.results[i];
+          if (res.isFinal) {
+            finalBuffer += res[0].transcript + ' ';
+          } else {
+            interim += res[0].transcript;
+          }
+        }
+        outArea.value = finalBuffer + (interim ? `(${interim})` : '');
+      };
+      return rec;
+    }
+
+    function start() {
+      if (!recognizer) recognizer = createRecognizer();
+      recognizer.lang = langSel.value;
+      recognizer.start();
+      listening = true;
+    }
+
+    function stop() {
+      listening = false;
+      if (recognizer) recognizer.stop();
+      setStatus(false);
+    }
+
+    btnToggle.addEventListener('click', () => { listening ? stop() : start(); });
+    btnClear.addEventListener('click', () => { finalBuffer = ''; outArea.value = ''; });
+  </script>
+
+  <!-- ================== SCRIPT EMBEDDINGS (MiniLM) ================== -->
+  <script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+
+    const stopwords = new Set(["a","de","el","la","los","las","y","o","que","en","un","una","unos","unas","para","con","por","del","al","es","son","se","su","sus"]);
+
+    const btn = document.getElementById('extraer');
+    const out = document.getElementById('resultados');
+    const status = document.getElementById('status');
+
+    // Tab elements
+    const tabsContainer = document.getElementById('tabs');
+    const tabInstruction = document.getElementById('tabInstruction');
+    const tabWords = document.getElementById('tabWords');
+    const instructionSection = document.getElementById('instructionSection');
+    const wordsSection = document.getElementById('wordsSection');
+    const wordsList = document.getElementById('wordsList');
+    const promptTextEl = document.getElementById('promptText');
+    const btnGoCopy = document.getElementById('btnGoCopy');
+    const notebookLink = document.getElementById('notebookLink');
+
+    const notebookURL = 'https://notebooklm.google.com/notebook/7e2da87f-c8c2-421c-a4e0-33280e309a22';
+
+    // El enlace y el texto del enlace se establecen en el HTML; no se sobrescriben aquí
+
+    const tokenize = (text, minLen = 3) => {
+      return text.toLowerCase().split(/[^\p{L}]+/u)
+        .filter(w => w && w.length >= minLen && !stopwords.has(w));
+    };
+
+    const buildCandidates = (words, useBigrams = true) => {
+      const set = new Set(words);
+      if (useBigrams) {
+        for (let i=0;i<words.length-1;i++) set.add(`${words[i]} ${words[i+1]}`);
+      }
+      return Array.from(set).slice(0,2000);
+    };
+
+    const cosine = (a, b) => a.reduce((s,v,i)=>s+v*b[i],0);
+
+    let extractor = null;
+    async function getPipeline() {
+      if (extractor) return extractor;
+      status.textContent = 'Cargando modelo…';
+      extractor = await pipeline('feature-extraction','Xenova/all-MiniLM-L6-v2',{dtype:'fp32'});
+      status.textContent = 'Modelo listo';
+      return extractor;
+    }
+
+    async function embed(texts) {
+      const model = await getPipeline();
+      const output = await model(texts,{pooling:'mean',normalize:true});
+      return Array.isArray(texts) ? output.tolist() : output.tolist();
+    }
+
+    // Tab switching logic
+    function showInstruction() {
+      instructionSection.style.display = 'block';
+      wordsSection.style.display = 'none';
+      tabInstruction.classList.add('active');
+      tabWords.classList.remove('active');
+    }
+    function showWords() {
+      instructionSection.style.display = 'none';
+      wordsSection.style.display = 'block';
+      tabInstruction.classList.remove('active');
+      tabWords.classList.add('active');
+    }
+
+    tabInstruction.addEventListener('click', showInstruction);
+    tabWords.addEventListener('click', showWords);
+
+    async function rankKeywords() {
+      try {
+        btn.disabled = true;
+        out.innerHTML = '';
+        wordsList.innerHTML = '';
+        promptTextEl.textContent = '';
+        tabsContainer.style.display = 'none';
+
+        const K = 3; // fijo a 3
+        const minLen = parseInt(document.getElementById('minlen').value,10) || 3;
+        const useBigrams = (document.getElementById('ngrams').value === '2');
+
+        const text = document.getElementById('texto').value.trim();
+        if (!text) { alert('Ingresa texto.'); btn.disabled = false; return; }
+
+        status.textContent = 'Tokenizando…';
+        const words = tokenize(text,minLen);
+        const cands = buildCandidates(words,useBigrams);
+        if (!cands.length) {
+          out.textContent = 'Sin candidatos.';
+          status.textContent = '';
+          return;
+        }
+
+        status.textContent = 'Generando embeddings…';
+        const [docVec] = await embed([text]);
+        const vecs = await embed(cands);
+
+        const sims = cands.map((term,i)=>({term,score:cosine(docVec,vecs[i])}));
+        sims.sort((a,b)=>b.score-a.score);
+
+        const top = sims.slice(0,K);
+
+        // Populate words list for the words section
+        wordsList.innerHTML = top
+          .map(t => `<div class="listrow"><span>${t.term}</span><span>${t.score.toFixed(4)}</span></div>`)
+          .join('');
+
+        // Construct prompt string
+        const prompt = `Selecciona los patrones de modelado de contratos inteligentes que resuelvan la siguiente problemática: ${top.map(t => t.term).join(', ')}`;
+        promptTextEl.textContent = prompt;
+
+        // Show tabs and default to instruction view
+        tabsContainer.style.display = 'block';
+        showInstruction();
+
+        status.textContent = 'Listo';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    btn.addEventListener('click', rankKeywords);
+
+    // Copy prompt and open NotebookLM link
+    btnGoCopy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(promptTextEl.textContent);
+        window.open(notebookURL, '_blank');
+      } catch (e) {
+        alert('No se pudo copiar al portapapeles.');
+      }
+    });
+  </script>
+</body>
+</html>
