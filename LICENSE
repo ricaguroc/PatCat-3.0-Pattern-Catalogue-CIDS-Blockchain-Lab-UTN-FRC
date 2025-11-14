@@ -20,8 +20,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
--Used @ patcat 3.3.html-
-webkitSpeechRecognition:
-all-MiniLM-L6-v2: Apache license 2.0 https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+-Used @ patcat 3.3.html
+* webkitSpeechRecognition:
+* all-MiniLM-L6-v2: Apache license 2.0 https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
 -NotebookLM: https://support.google.com/notebooklm/answer/16337734?hl=es-419&ref_topic=16175214&sjid=18348872898455433542-SA
 
