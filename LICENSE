@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -Used @ patcat 3.3.html
-* webkitSpeechRecognition:
-* all-MiniLM-L6-v2: Apache license 2.0 https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
--NotebookLM: https://support.google.com/notebooklm/answer/16337734?hl=es-419&ref_topic=16175214&sjid=18348872898455433542-SA
+* Web Speech API: AssembyAI, https://www.assemblyai.com/legal/terms-of-service
+* all-MiniLM-L6-v2: HuggingFace, pache license 2.0 https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+-Google NotebookLM: Google, https://support.google.com/notebooklm/answer/16337734?hl=es-419&ref_topic=16175214&sjid=18348872898455433542-SA
 
